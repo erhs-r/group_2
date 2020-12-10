@@ -5,6 +5,7 @@ library(lubridate)
 library(tidyr)
 library(patchwork)
 library(hrbrthemes)
+library(plotly)
 
 # Data cleaning
 
@@ -54,14 +55,53 @@ deaths <- state_cumulative %>%
 cases <- state_cumulative %>% 
   filter(metric == "Cases")
 
-p <- ggplot() +
+## Idea 1
+
+p1 <- ggplot() +
+  
+  geom_area(data = cases, aes(x = date, y= state_cumulative_total_perday*0.02), fill=caseColor) + 
+  geom_line(data = deaths, aes(x = date, y= state_cumulative_total_perday), size=1, color=deathColor) +
+  
+  scale_y_continuous(sec.axis = sec_axis(~.*50,name = "Cases", labels = scales::comma),
+    name="Deaths", labels = scales::comma) + 
+
+  theme_ipsum() +
+  
+  theme(axis.title.y = element_text(color = deathColor, size=13),
+    axis.title.y.right = element_text(color = caseColor, size=13)) +
+  
+  ggtitle("Time Series with Cases and Deaths") # change titles (cumulative)
+
+p1
+
+## Idea 2
+
+p2 <- cases_area <- state_cumulative %>% 
+  filter(metric == "Cases") %>% 
+  ggplot(aes(x = date, y = state_cumulative_total_perday)) +
+  geom_area(fill=caseColor) +
+  theme_ipsum() +
+  theme(axis.title.y.right = element_text(color = caseColor, size=13))
+
+p3 <- deaths_bar <- state_cumulative %>% 
+  filter(metric == "Deaths") %>% 
+  ggplot(aes(x = date, y = state_cumulative_total_perday)) +
+  geom_area(fill=deathColor) +
+  theme_ipsum() +
+  theme(axis.title.y = element_text(color = deathColor, size=13))
+
+p4 <- ggplotly(p2)
+p5 <- ggplotly(p3)
+
+## Idea 3
+
+p6 <- ggplot() +
   
   geom_col(data = cases, aes(x = date, y= state_cumulative_total_perday), color=caseColor) + 
   geom_line(data = deaths, aes(x = date, y= state_cumulative_total_perday*50), color=deathColor) +
   
-  scale_y_continuous(name = "Cases",
-    sec.axis = sec_axis(~.*0.02, name="Deaths")) + 
-
+  scale_y_continuous(name = "Cases", sec.axis = sec_axis(~.*0.02, name="Deaths")) + 
+  
   theme_ipsum() +
   
   theme(axis.title.y = element_text(color = caseColor, size=13),
@@ -69,4 +109,15 @@ p <- ggplot() +
   
   ggtitle("Time Series with Cases and Deaths")
 
-p
+ggplotly(p6)
+
+
+
+
+
+
+
+
+
+
+
