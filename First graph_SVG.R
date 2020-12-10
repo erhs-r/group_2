@@ -1,6 +1,8 @@
 library(tidyverse)
 library(lubridate)
 library(readr)
+library(ggthemes)
+library(scales)
 raw_data <- read_csv("../group_2/CDPHE_COVID19_County-Level_Open_Data_Repository.csv")
 covid <- raw_data %>% 
   mutate(COUNTY = as.factor(COUNTY),
@@ -31,25 +33,52 @@ covid <- raw_data %>%
 
 covid
 
-```{r state_cumulative_data}
-state_cumulative <- covid %>% 
-  filter(metric %in% c("Cases","Deaths", "Rate Per 100,000")) %>% 
-  group_by(metric, date) %>% 
-  summarize(state_cumulative_total_perday = sum(response)) %>% 
-  ungroup()
-state_cumulative
-```
-```{r time_series with cases}
-deaths_bar <- state_cumulative %>% 
-  filter(metric == "Deaths") %>% 
-  ggplot(aes(x = date, y = state_cumulative_total_perday
-  ))+
-  geom_line()
+#### per day data
 
-cases_line <- state_cumulative %>% 
-  filter(metric == "Cases") %>% 
-  ggplot(aes(x = date, y = state_cumulative_total_perday
-  ))+
+state_new_cases <- covid %>% 
+  filter(metric %in% c("Cases")) %>% 
+  group_by(date) %>% 
+  summarize(state_cumulative_total_perday = sum(response)) %>% 
+  ungroup() %>% 
+  mutate(cases_perday = state_cumulative_total_perday - lag(state_cumulative_total_perday)) %>% 
+  select(date, cases_perday)
+View(state_new_cases)
+
+state_new_deaths <- covid %>% 
+  filter(metric == "Deaths") %>% 
+  group_by(date) %>% 
+  summarize(state_cumulative_total_perday = sum(response)) %>% 
+  ungroup() %>% 
+  mutate(deaths_perday = state_cumulative_total_perday - lag(state_cumulative_total_perday)) %>% 
+  select(date, deaths_perday)
+View(state_new_deaths)
+
+state_new_full <- left_join(state_new_cases, state_new_deaths, by = "date")
+head(state_new_full)
+
+perday_cases <- state_new_full %>%
+  select(date, cases_perday) %>% 
+  ggplot(aes(x = date, y = cases_perday)) +
   geom_line()
-deaths_bar
-cases_line
+perday_cases
+
+perday_deaths <- state_new_full %>%
+  select(date, deaths_perday) %>% 
+  ggplot(aes(x = date, y = deaths_perday)) +
+  geom_col()
+perday_deaths
+
+perday_plot <- state_new_full %>% 
+  ggplot(aes(x = date)) +
+  geom_col(aes(y = cases_perday), size = 1, color = "darkblue", fill = "darkblue") +
+  geom_line(aes(y = 7*deaths_perday), size = 1, color = "red") +
+  labs(x = "", y = "") +
+  ggtitle("Colorado New Cases and Deaths", 
+          subtitle = "per day") +
+  theme_few()
+  
+perday_plot
+
+
+
+
