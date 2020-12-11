@@ -68,7 +68,7 @@ co_county_events <- colorado_counties %>%
 #Create pallet for Leaflet
 bins <- c(0, 500, 5000, 15000, 25000, 50000, Inf)
 pal <- colorBin("Set2", domain = co_county_events, bins = bins)
-
+#Set2
 ##PLot data
 leaflet() %>% 
   addTiles() %>% 
@@ -79,7 +79,7 @@ leaflet() %>%
                               '<p>', "Population:",population,'<p></p>',
                               '<p>', "Cases:", n),
               color = ~pal(n),
-              weight = 1,
+              weight = 2,
               opacity = 1,
               dashArray = "3",
               fillOpacity = 0.7,
