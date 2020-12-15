@@ -5,6 +5,7 @@ date: "12/14/2020"
 output: 
   flexdashboard::flex_dashboard:
     orientation: rows
+runtime: shiny
 ---
 
 
@@ -64,7 +65,7 @@ covid <- raw_data %>%
   select(label, fips, population, metric, response, date)
 ```
 
-Row
+Row{data-height=800, data-width=200}
 -------------------------------------
     
 ### Chart 1
@@ -93,7 +94,7 @@ state_new_full <- left_join(state_new_cases, state_new_deaths, by = "date")
 #head(state_new_full)
 ```
 
-```{r plot 3}
+```{r plot 3, height=800, width=200}
 perday_cases <- state_new_full %>%
   select(date, cases_perday) %>% 
   ggplot(aes(x = date, y = cases_perday)) +
@@ -412,7 +413,7 @@ covid_data <- covid %>%
 
 ```
 
-```{r}
+```{r, list=FALSE}
 cal_map <- calendarHeat(covid_data$date, covid_data$test_perday, ncolors = 99, varname ="COVID CASES", date.form = "May")
 cal_map
 ```
