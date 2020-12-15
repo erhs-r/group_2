@@ -35,7 +35,7 @@ library(hrbrthemes)
 
 ```{r, include = FALSE}
 # Import Data
-raw_data <- read.csv("../Desktop/STATS FINAL PROJECT/CDPHE_COVID19_County-Level_Open_Data_Repository.csv")
+raw_data <- read.csv("../ERHS_Project/CDPHE_COVID19_County-Level_Open_Data_Repository.csv")
 covid <- raw_data %>% 
   mutate(COUNTY = as.factor(COUNTY),
          Date = mdy(Date),
@@ -85,7 +85,7 @@ state_new_deaths <- covid %>%
   summarize(state_cumulative_total_perday = sum(response)) %>% 
   ungroup() %>% 
   mutate(deaths_perday = state_cumulative_total_perday - lag(state_cumulative_total_perday)) %>% 
-  mutate(deaths_perday = str_replace(state_new_deaths$deaths_perday, pattern = "[-]", "0")) %>%
+#mutate(deaths_perday = str_replace(state_new_deaths$deaths_perday, pattern = "[-]", "0")) %>%
   select(date, deaths_perday)
 #View(state_new_deaths)
 
@@ -97,13 +97,13 @@ state_new_full <- left_join(state_new_cases, state_new_deaths, by = "date")
 perday_cases <- state_new_full %>%
   select(date, cases_perday) %>% 
   ggplot(aes(x = date, y = cases_perday)) +
-  geom_line()
+  geom_col()
 #perday_cases
 
 perday_deaths <- state_new_full %>%
   select(date, deaths_perday) %>% 
   ggplot(aes(x = date, y = deaths_perday)) +
-  geom_col()
+  geom_line()
 #perday_deaths
 
 caseColor <- "#69b3a2"
@@ -119,7 +119,6 @@ perday_plot <- state_new_full %>%
   ggtitle("Colorado New Cases and Deaths", 
           subtitle = "per day") +
   theme_few()
-
 
 ggplotly(perday_plot)
 ```
