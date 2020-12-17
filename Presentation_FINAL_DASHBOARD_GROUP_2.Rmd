@@ -1,0 +1,299 @@
+---
+title: "Colorado COVID-19 Data Visualization"
+author: "Group 2"
+date: "12/17/2020"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: rows
+runtime: shiny
+---
+
+
+```{r, include = FALSE}
+library(flexdashboard)
+library(readr)
+library(lubridate)
+library(shiny)
+library(jsonlite)
+library(maptools)
+library(ggplot2)
+library(tidyr)
+library(dplyr)
+library(purrr)
+library(leaflet)
+library(plotly)
+library(DT)
+library(ggthemes)
+library(viridis)
+library(tidyverse)
+library(scales)
+library(stringr)
+library(sf)
+library(tigris)
+library(patchwork)
+#library(hrbrthemes)
+```
+
+```{r, include = FALSE}
+# Import Data
+raw_data <- read.csv("../ERHS_Project/CDPHE_COVID19_County-Level_Open_Data_Repository-2.csv")
+covid <- raw_data %>% 
+  mutate(COUNTY = as.factor(COUNTY),
+         Date = mdy(Date),
+         Desc_ = as.factor(Desc_),
+         FIPS = as.factor(FIPS),
+         FULL_ = as.factor(FULL_),
+         LABEL = as.factor(LABEL),
+         Metric = as.factor(Metric),
+         ObjectId = as.factor(ObjectId),
+         POP = as.factor(POP),
+         Rate = as.numeric(Rate),
+         Value = as.numeric(Value)) %>% 
+  rename(county = COUNTY,
+         date = Date,
+         descriptor = Desc_,
+         fips = FIPS,
+         full = FULL_,
+         label = LABEL,
+         metric = Metric,
+         objectid = ObjectId,
+         population = POP,
+         rate = Rate,
+         value = Value) %>% 
+  select(label, fips, population, descriptor, metric, value, rate, date, objectid) %>% 
+  mutate(response = coalesce(value, rate)) %>% 
+  select(label, fips, population, metric, response, date)
+```
+
+
+
+Overview
+===============================
+
+Column {data-height=70}
+-------------------------------------
+### **Data was obtained from the Colorado Department of Public Health and Environment COVID-19 County-Level Open Source database [link](https://data-cdphe.opendata.arcgis.com/datasets/52fb11a8a07f49c1b28335a9de9ba99f_0).**
+##### Use the **Overview** tab to be on top of daily data for cases and deaths in CO. The bars show new cases per day and the line new deaths per day. Click over a point to check each value and zoom in to get a better view of a specific time frame. Also, the total count of cases, deaths, and tests to date are shown on top. Click the **County Map** tab to explore the accumulative cases of COVID-19 by county. Click on each county to see information about population and cases. Go to the **CO Testing Calendar** tab to get a cool view of how many tests is CO doing daily! in a "heat calendar". Click or zoom specific dates to get values of COVID-19 tests in this state.
+
+Row {data-width=330}
+-------------------------------------
+### Total COVID-19 Cases
+```{r}
+cases <- covid %>% 
+  filter(metric == "Cases") %>% 
+  select(fips,label, population, date, response) %>% 
+  mutate(response = as.numeric(response),
+         label = as.character(label))
+cases <- cases[with(cases, order(fips,date)),]
+cases <- cases[cumsum(table(cases$fips)),]
+cases <- sum(cases$response)
+valueBox(value = cases, icon = "fa-user-plus", caption = "Total COVID-19 Cases in CO", color = "lightsalmon")
+```
+
+### Total COVID-19 Deaths
+
+```{r}
+deaths <- covid %>% 
+  filter(metric == "Deaths") %>% 
+  select(fips,label, population, date, response) %>% 
+  mutate(response = as.numeric(response),
+         label = as.character(label))
+deaths <- deaths[with(deaths, order(fips,date)),]
+deaths <- deaths[cumsum(table(deaths$fips)),]
+deaths <- sum(deaths$response)
+valueBox(value = deaths, icon = "fa-user-times", caption = "Total COVID-19 Deaths in CO", color = "lightseagreen")
+```
+
+### Total COVID-19 Tests
+
+```{r}
+tests <- covid %>% 
+  filter(metric == "Total Tests Performed") %>% 
+  select(fips,label, population, date, response) %>% 
+  mutate(response = as.numeric(response),
+         label = as.character(label))
+tests <- tests[with(tests, order(fips,date)),]
+tests <- tests[cumsum(table(tests$fips)),]
+tests <- sum(tests$response)
+valueBox(value = tests, icon = "fa-arrow-up", caption = "Total COVID-19 Tests in CO", color = "#9499f7")
+```
+
+Column {data-height = 600}
+-------------------------------------
+
+### **Daily cases and deaths in Colorado**
+```{r Data Cleaning 3, include = FALSE}
+state_new_cases <- covid %>% 
+  filter(metric %in% c("Cases")) %>% 
+  group_by(date) %>% 
+  summarize(state_cumulative_total_perday = sum(response)) %>% 
+  ungroup() %>% 
+  mutate(cases_perday = state_cumulative_total_perday - lag(state_cumulative_total_perday)) %>% 
+  select(date, cases_perday)
+#View(state_new_cases)
+
+state_new_deaths <- covid %>% 
+  filter(metric == "Deaths") %>% 
+  group_by(date) %>% 
+  summarize(state_cumulative_total_perday = sum(response)) %>% 
+  ungroup() %>% 
+  mutate(deaths_perday = state_cumulative_total_perday - lag(state_cumulative_total_perday)) %>% 
+#  mutate(deaths_perday = str_replace(state_new_deaths$deaths_perday, pattern = "[-]", "0")) #%>%
+  select(date, deaths_perday)
+#View(state_new_deaths)
+
+state_new_full <- left_join(state_new_cases, state_new_deaths, by = "date")
+#head(state_new_full)
+```
+
+```{r plot 3}
+caseColor <- "#69b3a2"
+deathColor <- "#8d61cf"
+
+perday_plot <- state_new_full %>% 
+  ggplot(aes(x = date)) +
+  geom_col(aes(y = cases_perday), size = 1, fill = caseColor) +
+  geom_line(aes(y = deaths_perday), size = 0.7, color = deathColor) +
+  labs(x = "", y = "") +
+  scale_y_continuous(name = "", labels = scales::comma) +
+  scale_x_date(date_breaks = "1 month", date_labels = "%b") +
+  theme_few()
+
+
+ggplotly(perday_plot)
+```
+
+County Map
+=====================================
+Column
+-------------------------------------
+    
+```{r clean, include = FALSE}
+#Clean Data
+tests <- covid %>% 
+  filter(metric == "Cases") %>% 
+  mutate(fips = str_pad(fips, 2, side = "left", pad = "0"),
+         fips = str_pad(fips, 3, side = "left", pad = "0"),
+         fips = paste0("08", fips)) %>% 
+  select(fips,label, population, date, response) %>% 
+  mutate(fips = as.factor(fips),
+         response = as.numeric(response),
+         population = as.character(population),
+         label = as.character(label))
+tests <- tests[with(tests, order(fips,date)),]
+tests <- tests[cumsum(table(tests$fips)),]
+
+##Geographic Data
+colorado_counties <- counties(state = "CO", cb = TRUE, class = "sf")
+#class(colorado_counties)
+#class(colorado_counties$geometry)
+#st_bbox(colorado_counties$geometry)
+
+##Merge Geographic Data with Raw Data
+co_county_events <- colorado_counties %>% 
+  mutate(fips = paste(STATEFP, COUNTYFP, sep = "")) %>% 
+  full_join(tests, by = "fips") %>% 
+  mutate(n = response) %>% 
+  mutate(n = ifelse(!is.na(n),n,0))
+
+#Create pallet for Leaflet
+bins <- c(0, 500, 5000, 15000, 25000, 50000, Inf)
+pal <- colorBin("Set2", domain = co_county_events, bins = bins)
+#Set2
+##PLot data
+```
+
+
+### **Colorado accumulative cases heat map**
+
+```{r plot}
+renderLeaflet({leaflet() %>% 
+  addTiles() %>% 
+#  fitBounds(-102.03,37,-109.03, 41) %>% 
+#  fitBounds(-102.03,42,-109.03, 46) %>% 
+  addPolygons(data = co_county_events,
+              popup = ~ paste('<p>', "County:", label,'<p></p>',
+                              '<p>', "Population:",population,'<p></p>',
+                              '<p>', "Cases:", n),
+              color = ~pal(n),
+              weight = 2,
+              opacity = 1,
+              dashArray = "3",
+              fillOpacity = 0.7,
+              highlight = highlightOptions(
+                weight = 2,
+                color = "#667",
+                dashArray = "",
+                fillOpacity = 0.7,
+                bringToFront = TRUE),
+              labelOptions = labelOptions(style = list("font-weight" = "normal", padding = "3px 8px"),
+                                          textsize = "15px",
+                                          direction = "auto")) %>% 
+  addLegend(data = co_county_events,
+            title = "Cumulative number Cases",
+            pal = pal, values = ~ n) %>% 
+  addLayersControl(baseGroups = c("base map"),
+                   overlayGroups = c("Cases","Deaths"))
+})
+```
+
+```{r, include = FALSE}
+covid_data <- covid %>% 
+  filter(metric == "Total Tests Performed") %>% 
+  group_by(date) %>% 
+  summarize(cumulative_test_state_perday = sum(response)) %>% 
+  mutate(test_perday = cumulative_test_state_perday - lag(cumulative_test_state_perday)) %>% 
+  select(date, test_perday)
+```
+
+```{r,include = FALSE}
+library(zoo)
+library(plyr)
+covid_data$weekday = as.POSIXlt(covid_data$date)$wday
+
+covid_data$weekdayf <-factor(covid_data$weekday,levels=rev(0:6),
+       labels=rev(c("Mon","Tue","Wed","Thu","Fri","Sat","Sun")),
+       ordered=FALSE)
+
+
+covid_data$monthf<-factor(month(covid_data$date),levels=as.character(1:12),
+                    labels=c("Jan","Feb","Mar","Apr","May","Jun","Jul","Aug",
+                             "Sep","Oct","Nov","Dec"),
+                          ordered=TRUE) # finding the month 
+
+covid_data$yearmonth <- factor(as.yearmon(covid_data$date))
+
+covid_data$week <- as.numeric(format(covid_data$date,"%W"))
+
+covid_data <- ddply(covid_data,.(yearmonth), transform,monthweek=1+week-min(week))
+
+plotboi <- ggplot(covid_data, aes(monthweek, weekdayf, 
+                               fill = test_perday, color = "Set2"))+
+  geom_tile(colour = 'white') +
+  facet_grid(year(covid_data$date)~monthf) +
+  scale_fill_gradient(low = "#66CC99", high = "#FF3333")+
+  xlab("Week of Month") +
+  ylab("") + 
+  ggtitle("") + 
+  labs(fill = "Test Per-Day")
+
+#plotboi
+```
+
+
+CO Testing Calendar
+===============================
+Column
+-------------------------------------
+
+### **Daily COVID-19 testing heat calendar**
+
+```{r, list = FALSE,echo = FALSE, message = FALSE, warning = FALSE}
+ggplotly(plotboi, width=1000, height=650)
+```
+
+
+
+
+
+
